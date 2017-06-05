@@ -7,6 +7,9 @@ connected(room1, room0).
 connected(room2, room1).
 connected(room1, room2).
 
+connected(room5, room0).
+connected(room0, room5).
+
 connected(room0, room2).
 connected(room2, room0).	
 	
@@ -27,7 +30,7 @@ agent(shakey).
 % ***** Rules *****
 
 findPath(A,B) :-
-	walk(A,B,[]).
+	walk(A,B,[],[A]).
 
 goInRoom(Agent, TargetRoom) :- 
 	agent(Agent),
@@ -38,17 +41,24 @@ goInRoom(Agent, TargetRoom) :-
 	format("~w  moved to ~w",[Agent, TargetRoom]),
 	flush_output.
 
-
-walk(A,B,V) :-      % go from A to B...
+walk(A,B,V,P) :-    % go from A to B...
   connected(A,X),   % - if A is connected to X, and
   not(member(X,V)), % - we haven't yet visited X, and
+  NewPath = [X|P], 
   (                 % - either
-    B = X				% X is the target
+	(
+		B = X,	% X is the target
+		reverse(NewPath, Path),
+		print(Path),
+		nl
+	)
 	;          		%   OR
-    walk(X,B,[A|V]) %   - we can get to it from X
+    walk(X,B,[A|V], NewPath) %   - we can get to it from X
   ).
 	
 getBox(Agent, Box) :-
 	inRoom(Box, TargetRoom),
-	goInRoom(Agent, TargetRoom).
+	goInRoom(Agent, TargetRoom),
+	format("~w found box ~w",[Agent, Box]),
+	flush_output.
 		
