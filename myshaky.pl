@@ -29,8 +29,10 @@ agent(shakey).
 		
 % ***** Rules *****
 
+add(X, L, [X|L]).
+
 findPath(A,B) :-
-	walk(A,B,[],[A]).
+	walk(A,B,[]).
 
 goInRoom(Agent, TargetRoom) :- 
 	agent(Agent),
@@ -38,27 +40,27 @@ goInRoom(Agent, TargetRoom) :-
 	findPath(CurrentRoom, TargetRoom),
 	assert(inRoom(Agent, TargetRoom)),
 	retract(inRoom(Agent, CurrentRoom)),
-	format("~w  moved to ~w",[Agent, TargetRoom]),
-	flush_output.
+	format("~w  moved from ~w to ~w",[Agent, CurrentRoom, TargetRoom]).
 
-walk(A,B,V,P) :-    % go from A to B...
+walk(A,B,V) :-    % go from A to B...
   connected(A,X),   % - if A is connected to X, and
-  not(member(X,V)), % - we haven't yet visited X, and
-  NewPath = [X|P], 
+  not(member(X,V)), % - we haven't yet visited X, and 
   (                 % - either
 	(
-		B = X,	% X is the target
-		reverse(NewPath, Path),
-		print(Path),
-		nl
+		% found X as the target
+		B = X,
+		add([A,B],V,Path),
+		reverse(Path, OrderedPath),
+		print("Path: "),
+		print(OrderedPath),
+		nl	
 	)
-	;          		%   OR
-    walk(X,B,[A|V], NewPath) %   - we can get to it from X
+	; %   OR
+    walk(X,B,[A|V]) %   - we can get to it from X
   ).
 	
 getBox(Agent, Box) :-
 	inRoom(Box, TargetRoom),
 	goInRoom(Agent, TargetRoom),
-	format("~w found box ~w",[Agent, Box]),
-	flush_output.
+	format("~w found box ~w",[Agent, Box]).
 		
