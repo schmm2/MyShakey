@@ -15,6 +15,9 @@ connected(room2, room0).
 	
 connected(room1, room4).
 connected(room4, room1).
+
+% room connection on its own -> allows box moving inside the room
+
 	
 %--Initial object positions--
 inRoom(blueBox, room4, 2, 2).
@@ -51,54 +54,68 @@ room(room5, 3, 3).
 		
 % ***** Rules *****
 
-add(X, L, [X|L]).
-
-findPath(A,B) :-
-	walk(A,B,[]).
-
+% move the agent into a room
 goInRoom(Agent, TargetRoom) :- 
 	agent(Agent),
 	inRoom(Agent, CurrentRoom),
-	findPath(CurrentRoom, TargetRoom),
+	findPathDFS(CurrentRoom, TargetRoom),
 	assert(inRoom(Agent, TargetRoom)),
 	retract(inRoom(Agent, CurrentRoom)),
-	format("~w  moved from ~w to ~w",[Agent, CurrentRoom, TargetRoom]),
+	format("go in room: ~w  moved from ~w to ~w",[Agent, CurrentRoom, TargetRoom]),
 	nl.
 
   
-walk(A,B,V) :-    % go from A to B...
-  connected(A,X),   % - if A is connected to X, and
-  not(member(X,V)), % - we haven't yet visited X, and 
-  (                 % - either
-	(
-		% found X as the target
-		B = X,
-		add([A,B],V,Path),
-		reverse(Path, OrderedPath),
-		format("To ~w ",B),
-		print("Path: "),
-		print(OrderedPath),
-		nl	
-	)
-	; %   OR
-    walk(X,B,[A|V]) %   - we can get to it from X
-  ).
-	
+
+% go to a box	
 goToBox(Agent, Box) :-
 	inRoom(Box, TargetRoom, X, Y),
-	goInRoom(Agent, TargetRoom),
-	format("~w went to box ~w",[Agent, Box]),
+	(
+		% check if we can go in the room
+		goInRoom(Agent, TargetRoom);
+		% or, is already in the target-room
+		(
+			inRoom(Agent,TargetRoom),
+			format("go to box: ~w already in ~w",[Agent, TargetRoom]),
+			nl
+		)
+	),
+	format("go to box: ~w went to ~w",[Agent, Box]),
 	nl.
 		
-
+% Move Box to another location
 moveBox(Agent, Box, TargetRoom, X, Y) :-
 	goToBox(Agent, Box),
 	inRoom(Box, CurrentRoom, OldX, OldY),
-	findPath(CurrentRoom, TargetRoom),
+	findPathDFS(CurrentRoom, TargetRoom),
 	% check if box is the top most
-	not(on(BoxAbove, Box)),
 	(
-		% 
+		(
+			% topmost box
+			not(on(BoxAbove, Box)),
+			format("move box: ~w is topmost in the stack",[Box]),
+			% no box ontop of this box found
+			on(Box, BoxBelow),
+			nl
+		);
+		(
+			% not topmost
+			% TODO: Make better
+			on(BoxAbove, Box),
+			% situation before moving
+			format("move box: ~w is on ~w",[BoxAbove, Box]),
+			nl,
+			% another box is on this box
+			on(Box, BoxBelow),
+			% situation after moving, the top box lies now on the box below
+			assert(on(BoxAbove, BoxBelow)),
+			retract(on(BoxAbove, Box)),
+			format("move box: ~w lies now on ~w",[BoxAbove, BoxBelow]),
+			nl
+		)
+		
+	),
+	(			
+		% check target location
 		(
 			% returns topmost box on X,Y	
 			inRoom(TargetBox, TargetRoom, X, Y),
@@ -106,20 +123,30 @@ moveBox(Agent, Box, TargetRoom, X, Y) :-
 		)
 		;
 		(
-			% there are no boxes on X,Y, pur box on ground
+			% there are no boxes on X,Y, put our box on the ground
 			not(inRoom(TargetBox, TargetRoom, X, Y)),
 			TopBox = ground
 		)
 	),
 	
+	% move shakey
+	assert(inRoom(Agent, TargetRoom)),
+	retract(inRoom(Agent, CurrentRoom)),
+	format("move agent: ~w  moved from ~w to ~w",[Agent, CurrentRoom, TargetRoom]),
+	nl,
+	
 	% put box on stack or ground
 	assert(on(Box, TopBox)),
+	retract(on(Box, BoxBelow)),
+	format("move box: put ~w on ~w",[Box, TopBox]),
+	nl,
+	
 	% move box
 	assert(inRoom(Box, TargetRoom, X, Y)),
 	retract(inRoom(Box, CurrentRoom, OldX, OldY)),
-	% move shakey
-	retract(inRoom(Agent, CurrentRoom)),
-	assert(inRoom(Agent, TargetRoom)).
+	format("move box result: moved ~w to ~w, X: ~w, Y:~w",[Box, TargetRoom, X, Y]),
+	nl.
+	
 
 		
 getTopBox(Box, TopBox):-
@@ -129,4 +156,30 @@ getTopBox(Box, TopBox):-
 getTopBox(Box, TopBox):-
 	on(BoxAbove, Box),
 	getTopBox(BoxAbove, TopBox).
+	
+	
+%********** Path Search Algorithm **********
+
+%***** BFS *****
+% To Be implementet
+
+%***** DFS *****
+findPathDFS(A,B) :-
+	walkDFS(A,B,[]).
 		
+walkDFS(A,B,V) :-    % go from A to B...
+  connected(A,X),   % - if A is connected to X, and
+  not(member(X,V)), % - we haven't yet visited X, and 
+  (                 % - either
+	(
+		% found X as the target
+		B = X,
+		append([B,A],V,Path),
+		reverse(Path, OrderedPath),
+		format("find path: path to ~w =",B),
+		print(OrderedPath),
+		nl	
+	)
+	; %   OR
+    walkDFS(X,B,[A|V]) %   - we can get to it from X
+  ).
